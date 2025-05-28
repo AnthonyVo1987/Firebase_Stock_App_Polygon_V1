@@ -1,0 +1,13 @@
+# project artifcats
+dist
+lib
+docs
+.DS_Store
+
+# node specific
+node_modules
+
+# IDE files
+.idea
+.vscode
+*.swp
