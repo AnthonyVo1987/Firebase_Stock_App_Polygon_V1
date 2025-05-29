@@ -43,10 +43,9 @@ export class PolygonClient {
   /**
    * Fetches the current market status from Polygon.io.
     * Fetches the current market status from Polygon.io.
-    * @returns {Promise<MarketStatus>} A promise that resolves with the market status.
+    * @return {Promise<MarketStatus>} A promise that resolves with the market status.
     */
   async getMarketStatus(): Promise<MarketStatus> {
-
     logger.info("Fetching market status from Polygon.io");
     try {
       const marketStatus = await this.client.markets.status();
@@ -65,7 +64,7 @@ export class PolygonClient {
   /**
    * Fetches the stock quote snapshot for a given ticker from Polygon.io.
    * @param {string} ticker The stock ticker symbol.
- * @returns {Promise<StockQuoteData | null>} A promise that resolves
+ * @return {Promise<StockQuoteData | null>} A promise that resolves
    *   with the stock quote data or null if not found.
   */
   async getStockQuote(
@@ -73,7 +72,7 @@ export class PolygonClient {
   Promise<StockQuoteData | null> {
     logger.info(
       `Fetching stock quote snapshot for ticker: ${ticker} from ` +
-      `Polygon.io`
+      "Polygon.io"
     );
     if (!ticker) {
       logger.error("Ticker not provided for getStockQuote.");
@@ -105,7 +104,7 @@ export class PolygonClient {
         timestamp: snapshot.ticker.lastTrade.timestamp, // Using timestamp from lastTrade
       };
 
- logger.info(
+      logger.info(
         `Successfully fetched stock quote snapshot for ${ticker}`,
         {price: stockQuote.price}
 
