@@ -50,8 +50,7 @@ export const getStockDataAndInsights = onCall(
     // Retrieve Gemini API key from environment configuration
     // (as per PRD section 6.2.3)
     // Ensure API key is configured for accessing Gemini API
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    // Corrected env var name
+    const geminiApiKey = process.env.GEMINI_API_KEY; // Corrected env var name
     if (!geminiApiKey) {
       logger.error(
         "Gemini API key not found in environment configuration."
@@ -90,8 +89,8 @@ export const getStockDataAndInsights = onCall(
         const result = await model.generateContent(prompt);
         const insightsText = result.response.text();
 
-        // Assuming insights are returned as newline-separated strings or similar,
-        // filter empty lines and take the first 3.
+        // Assuming insights are newline-separated.
+        // Filter empty lines & take first 3.
         const insights = insightsText
           .split("\\n")
           .filter((line) => line.trim() !== "")
