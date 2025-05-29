@@ -1,10 +1,15 @@
-import {RestClient}
-  from "polygon.io";
-import * as logger from "firebase-functions/logger";
-import {StockQuoteData, MarketStatus} from "../types/appTypes";
+import {
+  StockQuoteData,
+  MarketStatus,
+} from "../../types/appTypes";
+import {
+  info,
+  error as logError,
+  warn,
+} from "firebase-functions/logger"; // Renamed
+import polygonIoRestClient from "polygon.io";
 
-/**
- * Class to encapsulate Polygon.io API interactions as per PRD section 6.2.1.
+/* Class to encapsulate Polygon.io API interactions as per PRD section 6.2.1.
  * This class provides methods to fetch market status and stock snapshots
  * using the polygon.io client library.
  */
@@ -14,7 +19,7 @@ import {StockQuoteData, MarketStatus} from "../types/appTypes";
  * As per PRD section 6.2.1.
  */
 export class PolygonClient {
-  private client: RestClient;
+  private client: any; // Changed type back to any
 
   /**
    * Creates an instance of PolygonClient.
@@ -24,38 +29,52 @@ export class PolygonClient {
   constructor() {
     const polygonApiKey = process.env.POLYGON_API_KEY;
     if (!polygonApiKey) {
-      logger.error("Polygon.io API key not found in environment config.");
+      logError("Polygon.io API key not found in environment config.");
       throw new Error("Polygon.io API key not configured.");
     }
-    this.client = new RestClient(polygonApiKey);
+    // Explicitly cast to any to bypass strict type checks for now
+    this.client = polygonIoRestClient(polygonApiKey);
     this.client.debug(true); // Enable debug mode as per PRD
   }
 
   /**
    * Fetches the current market status from Polygon.io.
-   * @returns {Promise<MarketStatus>} A promise that resolves
-   *   with the market status.
-   */
-  /**
-   * Fetches the current market status from Polygon.io.
-   * Fetches the current market status from Polygon.io.
    * @return {Promise<MarketStatus>} A promise that resolves with the
-   *   market status.
+   * market status.
    */
   async getMarketStatus(): Promise<MarketStatus> {
-    logger.info("Fetching market status from Polygon.io");
+    info("Fetching market status from Polygon.io");
     try {
-      const marketStatus = await this.client.markets.status();
-      logger.info(
-        "Successfully fetched market status",
-        {status: marketStatus.status}
-      );
-      // Assuming MarketStatus structure from types/appTypes.ts matches
-      // Polygon response
-      return marketStatus as MarketStatus;
-    } catch (error) {
-      logger.error("Error fetching market status from Polygon.io:", error);
-      throw new Error("Failed to fetch market status.");
+      // Assuming the polygon.io client library's marketStatus method
+      // returns a structure compatible with our MarketStatus type.
+      // If not, specific mapping would be needed.
+      const marketStatusResponse = await this.client.markets.status();
+      info("Successfully fetched market status", {
+        status: marketStatusResponse.market, // Assuming 'market' holds status
+      });
+      // Perform mapping if the response structure differs from MarketStatus
+      // For now, assuming direct compatibility or MarketStatus is flexible.
+      return {
+        market: marketStatusResponse.market, // e.g., 'open', 'closed'
+        serverTime: marketStatusResponse.serverTime, // ISO string
+        // Add other fields if present and defined in MarketStatus
+      } as MarketStatus;
+    } catch (err) {
+      if (err instanceof Error) {
+        logError(
+          "Error fetching market status from Polygon.io:",
+          err.message
+        );
+        throw new Error(`Failed to fetch market status: ${err.message}`);
+      } else {
+        logError(
+          "Unknown error fetching market status from Polygon.io:",
+          String(err) // Use String(err) for unknown error types
+        );
+        throw new Error(
+          `Failed to fetch market status: ${String(err)}`
+        );
+      }
     }
   }
 
@@ -63,59 +82,71 @@ export class PolygonClient {
    * Fetches the stock quote snapshot for a given ticker from Polygon.io.
    * @param {string} ticker The stock ticker symbol.
    * @return {Promise<StockQuoteData | null>} A promise that resolves
-   *   with the stock quote data or null if not found.
+   * with the stock quote data or null if not found.
    */
-  async getStockQuote(
-    ticker: string):
-    Promise<StockQuoteData | null> {
-    logger.info(
-      `Fetching stock quote snapshot for ticker: ${ticker} from ` +
-      "Polygon.io"
+  async getStockQuote(ticker: string): Promise<StockQuoteData | null> {
+    info(
+      `Fetching stock quote for ticker: ${ticker} from Polygon.io`
     );
     if (!ticker) {
-      logger.error("Ticker not provided for getStockQuote.");
+      logError("Ticker not provided for getStockQuote.");
       throw new Error("Ticker is required.");
     }
 
     try {
       // Using snapshotTicker as specified in the PRD section 6.2.2
       // This provides a snapshot of the last trade and other key
-      // metrics, without needing to query multiple endpoints. The
-      // .ofTicker() method is used to get a snapshot for a specific ticker.
-      const snapshot =
-        await this.client.stocks.snapshots.ofTicker(ticker);
+      // metrics, without needing to query multiple endpoints.
+      const snapshot = await this.client.stocks.snapshots.ofTicker(ticker);
 
       if (!snapshot || !snapshot.ticker) {
-        logger.warn(`No snapshot data found for ticker: ${ticker}`);
+        warn(`No snapshot data found for ticker: ${ticker}`);
         return null;
       }
 
       // Map snapshot data to StockQuoteData structure
       // as defined in types/appTypes.ts
       const stockQuote: StockQuoteData = {
-        // Ensure ticker is uppercase
         ticker: snapshot.ticker.ticker.toUpperCase(),
-        // Assuming price is available here
-        price: snapshot.ticker.lastTrade.price,
-        open: snapshot.ticker.day.open,
-        high: snapshot.ticker.day.high,
-        low: snapshot.ticker.day.low,
-        volume: snapshot.ticker.day.volume,
-        // Using timestamp from lastTrade
-        timestamp: snapshot.ticker.lastTrade.timestamp,
+        price: snapshot.ticker.lastTrade?.price, // Optional chaining
+        open: snapshot.ticker.day?.open,
+        high: snapshot.ticker.day?.high,
+        low: snapshot.ticker.day?.low,
+        volume: snapshot.ticker.day?.volume,
+        timestamp: snapshot.ticker.lastTrade?.timestamp,
+        name: snapshot.ticker.name, // Example
+        todaysChange: snapshot.ticker.todaysChange,
+        todaysChangePerc: snapshot.ticker.todaysChangePerc,
+        updated: snapshot.ticker.updated,
+        day: snapshot.ticker.day,
+        lastTrade: snapshot.ticker.lastTrade,
       };
 
-      logger.info(
-        `Successfully fetched stock quote snapshot for ${ticker}`,
-        {price: stockQuote.price}
-      );
+      info(`Successfully fetched stock quote for ${ticker}`, {
+        price: stockQuote.price,
+      });
       return stockQuote;
-    } catch (error) {
-      logger.error(
-        `Error fetching stock quote snapshot for ticker ${ticker} ` +
-        "from Polygon.io:",
-        error);
-      throw new Error(`Failed to fetch stock quote for ${ticker}.`);
+    } catch (err) {
+      const baseErrorMsg =
+        `Error fetching stock quote for ${ticker} from Polygon.io:`;
+      if (err instanceof Error) {
+        logError(baseErrorMsg, err.message);
+        throw new Error(
+          `Failed to fetch stock quote for ${ticker}. ${err.message}`
+        );
+      } else {
+        logError(baseErrorMsg, String(err)); // For unknown error types
+        throw new Error(
+          `Failed to fetch stock quote for ${ticker}. ${String(err)}`
+        );
+      }
     }
   }
 }
+
+// Export an instance of the PolygonClient and its relevant methods
+const polygonClientInstance = new PolygonClient();
+export const getMarketStatus =
+  polygonClientInstance.getMarketStatus.bind(polygonClientInstance);
+export const getStockQuote =
+  polygonClientInstance.getStockQuote.bind(polygonClientInstance);
