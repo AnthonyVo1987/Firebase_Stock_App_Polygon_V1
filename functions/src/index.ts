@@ -79,13 +79,13 @@ export const getStockDataAndInsights = onCall(
       try {
         // Generate simple insights using Gemini API based on stock data
         // Based on PRD section 6.4.3
-        // Craft a detailed prompt for the AI to generate relevant 
+        // Craft a detailed prompt for the AI to generate relevant
         // stock insights
         const prompt =
           "Generate three simple insights based on the following " +
           "stock data in a concise list format:\\n" +
-          `${JSON.stringify(stockQuote)}. Focus on key metrics like ` +
-          "price change, volume, and daily range.";
+          `${JSON.stringify(stockQuote)}. Focus on key metrics ` +
+          "like price change, volume, and daily range.";
         const result = await model.generateContent(prompt);
         const insightsText = result.response.text();
 

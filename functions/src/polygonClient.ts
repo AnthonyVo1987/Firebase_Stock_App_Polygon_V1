@@ -1,5 +1,5 @@
 import {RestClient}
- from "polygon.io";
+  from "polygon.io";
 import * as logger from "firebase-functions/logger";
 import {StockQuoteData, MarketStatus} from "../types/appTypes";
 
@@ -96,13 +96,13 @@ export class PolygonClient {
         // Ensure ticker is uppercase
         ticker: snapshot.ticker.ticker.toUpperCase(),
         // Assuming price is available here
-        price: snapshot.ticker.lastTrade.price, 
+        price: snapshot.ticker.lastTrade.price,
         open: snapshot.ticker.day.open,
         high: snapshot.ticker.day.high,
         low: snapshot.ticker.day.low,
         volume: snapshot.ticker.day.volume,
         // Using timestamp from lastTrade
-        timestamp: snapshot.ticker.lastTrade.timestamp, 
+        timestamp: snapshot.ticker.lastTrade.timestamp,
       };
 
       logger.info(
