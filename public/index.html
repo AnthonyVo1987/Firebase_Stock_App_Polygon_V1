@@ -41,6 +41,12 @@
   </head>
   <body>
     <h1>Stock Market Insights</h1>
+    <div>
+      <label for="ticker-input">Enter Ticker Symbol:</label>
+      <input type="text" id="ticker-input">
+      <button onclick="handleGetMarketAndQuote()">Get Market Status and Quote</button>
+      <button onclick="handleGenerateAIInsights()">Get AI Insights</button>
+    </div>
     <div id="app">
       <div id="market-status"></div>
       <div id="stock-quote"></div>

@@ -2,13 +2,15 @@ import { MarketStatusDisplay } from './components/MarketStatusDisplay.js';
 import { StockQuoteDisplay } from './components/StockQuoteDisplay.js';
 import { AISimpleInsightsDisplay } from './components/AISimpleInsightsDisplay.js';
 import { initializeApp } from 'firebase/app';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+// Functions for interacting with Cloud Functions
+import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
 console.log('main.js loaded');
 
 // Get references to the display divs
 const marketStatusElement = document.getElementById('market-status');
 const stockQuoteElement = document.getElementById('stock-quote');
 const aiInsightsElement = document.getElementById('ai-insights');
+const tickerInput = document.getElementById('ticker-input');
 
 // Placeholder data
 const placeholderMarketStatus = {
@@ -38,8 +40,17 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const functions = getFunctions(app);
 
+// Initialize Firebase Functions
+const functions = getFunctions(app);
+// Connect to the Functions emulator if running locally
+if (window.location.hostname === 'localhost') {
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+}
+
+// Callable function references
+const getMarketStatusAndQuoteCallable = httpsCallable(functions, 'getMarketStatusAndQuote');
+const generateStockInsightsCallable = httpsCallable(functions, 'generateStockInsights');
 // Call getMarketStatus on page load
 const callGetMarketStatus = httpsCallable(functions, 'getMarketStatus');
 callGetMarketStatus().then((result) => {
@@ -65,12 +76,62 @@ if (aiInsightsElement) {
   aiSimpleInsightsDisplay.render(placeholderAiInsights);
 }
 
-// Function to call getStockDataAndInsights (will be called later)
-const callGetStockDataAndInsights = (ticker) => {
-  const getStockDataAndInsightsCallable = httpsCallable(functions, 'getStockDataAndInsights');
-  getStockDataAndInsightsCallable({ ticker: ticker }).then((result) => {
-    console.log('Stock Data and Insights:', result.data);
-  }).catch((error) => {
-    console.error('Error getting stock data and insights:', error);
-  });
-};
+// Event listeners for buttons
+document.getElementById('get-stock-data-button')?.addEventListener('click', handleGetMarketAndQuote);
+document.getElementById('generate-insights-button')?.addEventListener('click', handleGenerateAIInsights);
+
+// Handle button clicks
+// Function to handle fetching market status and stock quote
+async function handleGetMarketAndQuote() {
+  // Display loading state
+  if (stockQuoteElement) stockQuoteElement.innerHTML = 'Loading stock data...';
+  if (marketStatusElement) marketStatusElement.innerHTML = 'Loading market status...';
+
+  const ticker = tickerInput.value.trim();
+  if (ticker) {
+    try {
+      const result = await getMarketStatusAndQuoteCallable({ ticker: ticker.toUpperCase() });
+      console.log('Market Status and Quote:', result.data);
+      if (stockQuoteElement) {
+        const stockQuoteDisplay = new StockQuoteDisplay(stockQuoteElement);
+        stockQuoteDisplay.render(result.data.stockQuote);
+      }
+      if (marketStatusElement) {
+        const marketStatusDisplay = new MarketStatusDisplay(marketStatusElement);
+        marketStatusDisplay.render(result.data.marketStatus);
+      }
+    } catch (error) {
+      console.error('Error getting market status and quote:', error);
+      if (stockQuoteElement) stockQuoteElement.innerHTML = 'Error loading stock data.';
+      if (marketStatusElement) marketStatusElement.innerHTML = 'Error loading market status.';
+    }
+  } else {
+    alert('Please enter a ticker symbol.');
+  }
+}
+
+// Function to handle generating AI insights
+async function handleGenerateAIInsights() {
+  // Display loading state
+  if (aiInsightsElement) aiInsightsElement.innerHTML = 'Generating AI insights...';
+
+  const ticker = tickerInput.value.trim();
+  if (ticker) {
+  try {
+    const result = await generateStockInsightsCallable({ ticker: ticker.toUpperCase() });
+    console.log('Stock Insights:', result.data);
+    if (aiInsightsElement) {
+      const aiSimpleInsightsDisplay = new AISimpleInsightsDisplay(aiInsightsElement);
+      aiSimpleInsightsDisplay.render(result.data.insights);
+    }
+  } catch (error) {
+    console.error('Error generating stock insights:', error);
+    if (aiInsightsElement) aiInsightsElement.innerHTML = 'Error generating AI insights.';
+  }
+  } else {
+    alert('Please enter a ticker symbol.');
+  }
+}
+
+// Note: The original `getMarketStatusAndQuote` and `generateStockInsights` functions were removed
+// as the logic was moved into the event handler functions.
