@@ -1,24 +1,20 @@
-import {restClient} from "polygon.io";
+import {RestClient}
+ from "polygon.io";
 import * as logger from "firebase-functions/logger";
 import {StockQuoteData, MarketStatus} from "../types/appTypes";
 
 /**
-* Class to encapsulate Polygon.io API interactions as per PRD section 6.2.1.
-* This class provides methods to fetch market status and stock snapshots
-* using the polygon.io client library.*/
-
-/**
- * Client for interacting with the Polygon.io API.
- * As per PRD section 6.2.1.
+ * Class to encapsulate Polygon.io API interactions as per PRD section 6.2.1.
+ * This class provides methods to fetch market status and stock snapshots
+ * using the polygon.io client library.
  */
 
 /**
  * Client for interacting with the Polygon.io API.
  * As per PRD section 6.2.1.
  */
-
 export class PolygonClient {
-  private client: restClient;
+  private client: RestClient;
 
   /**
    * Creates an instance of PolygonClient.
@@ -31,7 +27,7 @@ export class PolygonClient {
       logger.error("Polygon.io API key not found in environment config.");
       throw new Error("Polygon.io API key not configured.");
     }
-    this.client = new restClient(polygonApiKey);
+    this.client = new RestClient(polygonApiKey);
     this.client.debug(true); // Enable debug mode as per PRD
   }
 
@@ -42,9 +38,10 @@ export class PolygonClient {
    */
   /**
    * Fetches the current market status from Polygon.io.
-    * Fetches the current market status from Polygon.io.
-    * @return {Promise<MarketStatus>} A promise that resolves with the market status.
-    */
+   * Fetches the current market status from Polygon.io.
+   * @return {Promise<MarketStatus>} A promise that resolves with the
+   *   market status.
+   */
   async getMarketStatus(): Promise<MarketStatus> {
     logger.info("Fetching market status from Polygon.io");
     try {
@@ -53,7 +50,8 @@ export class PolygonClient {
         "Successfully fetched market status",
         {status: marketStatus.status}
       );
-      // Assuming MarketStatus structure from types/appTypes.ts matches Polygon response
+      // Assuming MarketStatus structure from types/appTypes.ts matches
+      // Polygon response
       return marketStatus as MarketStatus;
     } catch (error) {
       logger.error("Error fetching market status from Polygon.io:", error);
@@ -64,12 +62,12 @@ export class PolygonClient {
   /**
    * Fetches the stock quote snapshot for a given ticker from Polygon.io.
    * @param {string} ticker The stock ticker symbol.
- * @return {Promise<StockQuoteData | null>} A promise that resolves
+   * @return {Promise<StockQuoteData | null>} A promise that resolves
    *   with the stock quote data or null if not found.
-  */
+   */
   async getStockQuote(
     ticker: string):
-  Promise<StockQuoteData | null> {
+    Promise<StockQuoteData | null> {
     logger.info(
       `Fetching stock quote snapshot for ticker: ${ticker} from ` +
       "Polygon.io"
@@ -95,24 +93,27 @@ export class PolygonClient {
       // Map snapshot data to StockQuoteData structure
       // as defined in types/appTypes.ts
       const stockQuote: StockQuoteData = {
-        ticker: snapshot.ticker.ticker.toUpperCase(), // Ensure ticker is uppercase
-        price: snapshot.ticker.lastTrade.price, // Assuming price is available here
+        // Ensure ticker is uppercase
+        ticker: snapshot.ticker.ticker.toUpperCase(),
+        // Assuming price is available here
+        price: snapshot.ticker.lastTrade.price, 
         open: snapshot.ticker.day.open,
         high: snapshot.ticker.day.high,
         low: snapshot.ticker.day.low,
         volume: snapshot.ticker.day.volume,
-        timestamp: snapshot.ticker.lastTrade.timestamp, // Using timestamp from lastTrade
+        // Using timestamp from lastTrade
+        timestamp: snapshot.ticker.lastTrade.timestamp, 
       };
 
       logger.info(
         `Successfully fetched stock quote snapshot for ${ticker}`,
         {price: stockQuote.price}
-
       );
       return stockQuote;
     } catch (error) {
       logger.error(
-        `Error fetching stock quote snapshot for ticker ${ticker} from Polygon.io:`,
+        `Error fetching stock quote snapshot for ticker ${ticker} ` +
+        "from Polygon.io:",
         error);
       throw new Error(`Failed to fetch stock quote for ${ticker}.`);
     }
