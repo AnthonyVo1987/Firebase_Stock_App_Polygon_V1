@@ -50,7 +50,8 @@ export const getStockDataAndInsights = onCall(
     // Retrieve Gemini API key from environment configuration
     // (as per PRD section 6.2.3)
     // Ensure API key is configured for accessing Gemini API
-    const geminiApiKey = process.env.GEMINI_API_KEY; // Corrected env var name
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    // Corrected env var name
     if (!geminiApiKey) {
       logger.error(
         "Gemini API key not found in environment configuration."
