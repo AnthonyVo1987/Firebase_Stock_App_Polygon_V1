@@ -1,14 +1,13 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
-import {info, error} from "firebase-functions/logger";
+import * as logger from "firebase-functions/logger"; // Using namespace import
 import {
   getMarketStatus as getPolygonMarketStatus,
   getStockQuote,
 } from "./polygonClient"; // Import from the new module
 import {GoogleGenerativeAI} from "@google/generative-ai";
-import * as logger from "firebase-functions/logger";
+
 // Define and export getMarketStatus callable function
 export const getMarketStatus = onCall(
-
   async () => {
     logger.info("getMarketStatus callable function called.",
       {structuredData: true});
@@ -20,13 +19,26 @@ export const getMarketStatus = onCall(
       logger.info("Successfully fetched market status.",
         {structuredData: true});
       return marketStatus;
-    } catch (error: any) {
-      error("Error in getMarketStatus callable function:", error);
+    } catch (err: unknown) { // Changed from 'any' to 'unknown'
+      let errorMessage = "An unknown error occurred.";
+      let errorDetails;
+
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        errorDetails = {name: err.name, message: err.message, stack: err.stack};
+      } else if (typeof err === "string") {
+        errorMessage = err;
+        errorDetails = {message: err};
+      } else {
+        errorDetails = err; // Store the original error if not an Error instance
+      }
+
+      logger.error("Error in getMarketStatus callable function:", errorDetails || err);
       // Rethrow the error to be sent back to the client
       throw new HttpsError(
         "internal",
-        "Failed to fetch market status.",
-        error
+        `Failed to fetch market status: ${errorMessage}`,
+        errorDetails // Pass structured details if available
       );
     }
   });
@@ -36,14 +48,16 @@ export const getMarketStatus = onCall(
 export const getStockDataAndInsights = onCall(
   async (request) => {
     // Log function call with structured data
-    info("getStockDataAndInsights callable function called.",
+    logger.info("getStockDataAndInsights callable function called.",
       {structuredData: true});
 
     // Extract ticker from request data
     const ticker = request.data?.ticker;
 
     if (!ticker) {
-      error(
+      // Corrected logger call with a message
+      logger.error(
+        "Ticker not provided in request data for getStockDataAndInsights."
       );
       // Throw a HttpsError with a clear code and message
       throw new HttpsError("invalid-argument", "Ticker is required.");
@@ -54,7 +68,7 @@ export const getStockDataAndInsights = onCall(
     // Ensure API key is configured for accessing Gemini API
     const geminiApiKey = process.env.GEMINI_API_KEY; // Corrected env var name
     if (!geminiApiKey) {
-      error("Gemini API key not found in environment configuration.");
+      logger.error("Gemini API key not found in environment configuration.");
       throw new HttpsError("internal", "Gemini API key not configured.");
     }
 
@@ -67,15 +81,15 @@ export const getStockDataAndInsights = onCall(
       model: "gemini-2.5-flash-preview-04-17",
     });
 
-    try {
+    try { // Main try block for fetching stock quote and generating insights
       // Call the getStockQuote function from the polygonClient module
       // to fetch stock data from Polygon.io
-      const stockQuote = await getStockQuote(ticker);
-      info(`Successfully fetched stock quote for ${ticker}.`,
+      const stockQuote = await getStockQuote(ticker); // stockQuote is defined here
+      logger.info(`Successfully fetched stock quote for ${ticker}.`,
         {structuredData: true}
       );
 
-      try {
+      try { // Inner try block for AI insights, uses stockQuote from outer scope
         // Generate simple insights using Gemini API based on stock data
         // Based on PRD section 6.4.3
         // Craft a detailed prompt for the AI to generate relevant
@@ -100,18 +114,31 @@ export const getStockDataAndInsights = onCall(
         );
         return {stockQuote, insights};
       } catch (aiError) {
-        error("Error generating insights from Gemini API:", aiError);
+        logger.error("Error generating insights from Gemini API:", aiError);
         // Continue with stock data even if insights generation fails,
         // return a placeholder insight
+        // stockQuote is available here from the outer try block
         return {stockQuote, insights: ["Failed to generate insights."]};
       }
-    } catch (error: any) {
-      error("API error:", error);
-      // Rethrow the error to be sent back to the client as per Firebase callable functions error handling
+    } catch (err: unknown) { // Catch block for the main try (getStockQuote and unhandled from insights)
+      let errorMessage = "An unknown error occurred while fetching stock data or insights.";
+      let errorDetails;
+
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        errorDetails = {name: err.name, message: err.message, stack: err.stack};
+      } else if (typeof err === "string") {
+        errorMessage = err;
+        errorDetails = {message: err};
+      } else {
+        errorDetails = err; // Store the original error if not an Error instance
+      }
+      logger.error("API error in getStockDataAndInsights:", errorDetails || err);
+      // Rethrow the error to be sent back to the client
       throw new HttpsError(
         "internal",
-        "Failed to get stock data or insights.",
-        error
+        `Failed to get stock data or insights: ${errorMessage}`,
+        errorDetails // Pass structured details if available
       );
     }
   });

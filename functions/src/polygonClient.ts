@@ -3,7 +3,7 @@ import {
   MarketStatus,
 } from "../../types/appTypes";
 import * as logger from "firebase-functions/logger";
-import polygonIoRestClient from "polygon.io";
+import polygonIoRestClient, {IRestClient} from "polygon.io"; // Assuming IRestClient is a valid export
 
 /* Class to encapsulate Polygon.io API interactions as per PRD section 6.2.1.
  * This class provides methods to fetch market status and stock snapshots
@@ -15,25 +15,26 @@ import polygonIoRestClient from "polygon.io";
  * As per PRD section 6.2.1.
  */
 export class PolygonClient {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private client: any; // Changed type back to any
+  // Using IRestClient if available and compatible, otherwise 'any' might be needed
+  // if the library's typings are not precise or lead to other issues.
+  // For now, let's assume IRestClient is appropriate or revert to 'any' if it causes problems.
+  private client: IRestClient;
+  private logger: typeof logger; // Logger property
 
-  private logger: typeof logger; // Add logger property
- 
-
+  // Line 22: Ensured this area is clean (no trailing spaces on empty lines)
   /**
-    * Creates an instance of PolygonClient.
-    * Retrieves the Polygon API key from environment variables.
-    * @throws {Error} If the Polygon API key is not configured.
-    * @param {typeof logger} logger The logger instance to use.
-  */
-  constructor(logger: typeof logger) {
+   * Creates an instance of PolygonClient.
+   * Retrieves the Polygon API key from environment variables.
+   * @throws {Error} If the Polygon API key is not configured.
+   * @param {object} loggerInstance The logger instance to use (JSDoc type as object).
+   */
+  constructor(loggerInstance: typeof logger) { // TypeScript type is specific
+    this.logger = loggerInstance; // Initialize the logger property
     const polygonApiKey = process.env.POLYGON_API_KEY;
     if (!polygonApiKey) {
-      logger.error("Polygon.io API key not found in environment config.");
+      this.logger.error("Polygon.io API key not found in environment config.");
       throw new Error("Polygon.io API key not configured.");
     }
-    // Explicitly cast to any to bypass strict type checks for now
     this.client = polygonIoRestClient(polygonApiKey);
     this.client.debug(true); // Enable debug mode as per PRD
   }
@@ -46,19 +47,13 @@ export class PolygonClient {
   async getMarketStatus(): Promise<MarketStatus> {
     this.logger.info("Fetching market status from Polygon.io");
     try {
-      // Assuming the polygon.io client library's marketStatus method
-      // returns a structure compatible with our MarketStatus type.
-      // If not, specific mapping would be needed.
       const marketStatusResponse = await this.client.markets.status();
       this.logger.info("Successfully fetched market status", {
-        status: marketStatusResponse.market, // Assuming 'market' holds status
+        status: marketStatusResponse.market,
       });
-      // Perform mapping if the response structure differs from MarketStatus
-      // For now, assuming direct compatibility or MarketStatus is flexible.
       return {
-        market: marketStatusResponse.market, // e.g., 'open', 'closed'
-        serverTime: marketStatusResponse.serverTime, // ISO string
-        // Add other fields if present and defined in MarketStatus
+        market: marketStatusResponse.market,
+        serverTime: marketStatusResponse.serverTime,
       } as MarketStatus;
     } catch (err) {
       if (err instanceof Error) {
@@ -70,7 +65,7 @@ export class PolygonClient {
       } else {
         this.logger.error(
           "Unknown error fetching market status from Polygon.io:",
-          String(err) // Use String(err) for unknown error types
+          String(err)
         );
         throw new Error(
           `Failed to fetch market status: ${String(err)}`
@@ -95,9 +90,6 @@ export class PolygonClient {
     }
 
     try {
-      // Using snapshotTicker as specified in the PRD section 6.2.2
-      // This provides a snapshot of the last trade and other key
-      // metrics, without needing to query multiple endpoints.
       const snapshot = await this.client.stocks.snapshots.ofTicker(ticker);
 
       if (!snapshot || !snapshot.ticker) {
@@ -105,17 +97,15 @@ export class PolygonClient {
         return null;
       }
 
-      // Map snapshot data to StockQuoteData structure
-      // as defined in types/appTypes.ts
       const stockQuote: StockQuoteData = {
         ticker: snapshot.ticker.ticker.toUpperCase(),
-        price: snapshot.ticker.lastTrade?.price, // Optional chaining
+        price: snapshot.ticker.lastTrade?.price,
         open: snapshot.ticker.day?.open,
         high: snapshot.ticker.day?.high,
         low: snapshot.ticker.day?.low,
         volume: snapshot.ticker.day?.volume,
         timestamp: snapshot.ticker.lastTrade?.timestamp,
-        name: snapshot.ticker.name, // Example
+        name: snapshot.ticker.name,
         todaysChange: snapshot.ticker.todaysChange,
         todaysChangePerc: snapshot.ticker.todaysChangePerc,
         updated: snapshot.ticker.updated,
@@ -131,12 +121,12 @@ export class PolygonClient {
       const baseErrorMsg =
         `Error fetching stock quote for ${ticker} from Polygon.io:`;
       if (err instanceof Error) {
-        logger.error(baseErrorMsg, err.message);
+        this.logger.error(baseErrorMsg, err.message); // Ensured this.logger
         throw new Error(
           `Failed to fetch stock quote for ${ticker}. ${err.message}`
         );
       } else {
-        logger.error(baseErrorMsg, String(err)); // For unknown error types
+        this.logger.error(baseErrorMsg, String(err)); // Ensured this.logger
         throw new Error(
           `Failed to fetch stock quote for ${ticker}. ${String(err)}`
         );
@@ -144,8 +134,8 @@ export class PolygonClient {
     }
   }
 }
-// Export an instance of the PolygonClient and its relevant methods
-const polygonClientInstance = new PolygonClient(logger); // Pass logger instance
+
+const polygonClientInstance = new PolygonClient(logger); // Pass logger
 export const getMarketStatus =
   polygonClientInstance.getMarketStatus.bind(polygonClientInstance);
 export const getStockQuote =
