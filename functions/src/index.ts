@@ -20,7 +20,7 @@ export const getMarketStatus = onCall(
       logger.info("Successfully fetched market status.",
         {structuredData: true});
       return marketStatus;
-    } catch (error) {
+    } catch (error: any) {
       error("Error in getMarketStatus callable function:", error);
       // Rethrow the error to be sent back to the client
       throw new HttpsError(
@@ -105,9 +105,8 @@ export const getStockDataAndInsights = onCall(
         // return a placeholder insight
         return {stockQuote, insights: ["Failed to generate insights."]};
       }
-    } catch (error) {
-      error(
-        "Error in getStockDataAndInsights callable function:", error
+    } catch (error: any) {
+      error("API error:", error);
       // Rethrow the error to be sent back to the client as per Firebase callable functions error handling
       throw new HttpsError(
         "internal",

@@ -2,11 +2,7 @@ import {
   StockQuoteData,
   MarketStatus,
 } from "../../types/appTypes";
-import {
-  info,
-  error as logError,
-  warn,
-} from "firebase-functions/logger"; // Renamed
+import * as logger from "firebase-functions/logger";
 import polygonIoRestClient from "polygon.io";
 
 /* Class to encapsulate Polygon.io API interactions as per PRD section 6.2.1.
@@ -19,17 +15,22 @@ import polygonIoRestClient from "polygon.io";
  * As per PRD section 6.2.1.
  */
 export class PolygonClient {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private client: any; // Changed type back to any
 
+  private logger: typeof logger; // Add logger property
+ 
+
   /**
-   * Creates an instance of PolygonClient.
-   * Retrieves the Polygon API key from environment variables.
-   * @throws {Error} If the Polygon API key is not configured.
-   */
-  constructor() {
+    * Creates an instance of PolygonClient.
+    * Retrieves the Polygon API key from environment variables.
+    * @throws {Error} If the Polygon API key is not configured.
+    * @param {typeof logger} logger The logger instance to use.
+  */
+  constructor(logger: typeof logger) {
     const polygonApiKey = process.env.POLYGON_API_KEY;
     if (!polygonApiKey) {
-      logError("Polygon.io API key not found in environment config.");
+      logger.error("Polygon.io API key not found in environment config.");
       throw new Error("Polygon.io API key not configured.");
     }
     // Explicitly cast to any to bypass strict type checks for now
@@ -43,13 +44,13 @@ export class PolygonClient {
    * market status.
    */
   async getMarketStatus(): Promise<MarketStatus> {
-    info("Fetching market status from Polygon.io");
+    this.logger.info("Fetching market status from Polygon.io");
     try {
       // Assuming the polygon.io client library's marketStatus method
       // returns a structure compatible with our MarketStatus type.
       // If not, specific mapping would be needed.
       const marketStatusResponse = await this.client.markets.status();
-      info("Successfully fetched market status", {
+      this.logger.info("Successfully fetched market status", {
         status: marketStatusResponse.market, // Assuming 'market' holds status
       });
       // Perform mapping if the response structure differs from MarketStatus
@@ -61,13 +62,13 @@ export class PolygonClient {
       } as MarketStatus;
     } catch (err) {
       if (err instanceof Error) {
-        logError(
+        this.logger.error(
           "Error fetching market status from Polygon.io:",
           err.message
         );
         throw new Error(`Failed to fetch market status: ${err.message}`);
       } else {
-        logError(
+        this.logger.error(
           "Unknown error fetching market status from Polygon.io:",
           String(err) // Use String(err) for unknown error types
         );
@@ -85,11 +86,11 @@ export class PolygonClient {
    * with the stock quote data or null if not found.
    */
   async getStockQuote(ticker: string): Promise<StockQuoteData | null> {
-    info(
+    this.logger.info(
       `Fetching stock quote for ticker: ${ticker} from Polygon.io`
     );
     if (!ticker) {
-      logError("Ticker not provided for getStockQuote.");
+      this.logger.error("Ticker not provided for getStockQuote.");
       throw new Error("Ticker is required.");
     }
 
@@ -100,7 +101,7 @@ export class PolygonClient {
       const snapshot = await this.client.stocks.snapshots.ofTicker(ticker);
 
       if (!snapshot || !snapshot.ticker) {
-        warn(`No snapshot data found for ticker: ${ticker}`);
+        this.logger.warn(`No snapshot data found for ticker: ${ticker}`);
         return null;
       }
 
@@ -122,7 +123,7 @@ export class PolygonClient {
         lastTrade: snapshot.ticker.lastTrade,
       };
 
-      info(`Successfully fetched stock quote for ${ticker}`, {
+      this.logger.info(`Successfully fetched stock quote for ${ticker}`, {
         price: stockQuote.price,
       });
       return stockQuote;
@@ -130,12 +131,12 @@ export class PolygonClient {
       const baseErrorMsg =
         `Error fetching stock quote for ${ticker} from Polygon.io:`;
       if (err instanceof Error) {
-        logError(baseErrorMsg, err.message);
+        logger.error(baseErrorMsg, err.message);
         throw new Error(
           `Failed to fetch stock quote for ${ticker}. ${err.message}`
         );
       } else {
-        logError(baseErrorMsg, String(err)); // For unknown error types
+        logger.error(baseErrorMsg, String(err)); // For unknown error types
         throw new Error(
           `Failed to fetch stock quote for ${ticker}. ${String(err)}`
         );
@@ -143,9 +144,8 @@ export class PolygonClient {
     }
   }
 }
-
 // Export an instance of the PolygonClient and its relevant methods
-const polygonClientInstance = new PolygonClient();
+const polygonClientInstance = new PolygonClient(logger); // Pass logger instance
 export const getMarketStatus =
   polygonClientInstance.getMarketStatus.bind(polygonClientInstance);
 export const getStockQuote =
